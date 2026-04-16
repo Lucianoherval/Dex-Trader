@@ -28,9 +28,10 @@ def enviar_telegram(mensagem):
 # ==========================================
 # ⚙️ CONFIGURAÇÕES DA ESTRATÉGIA DEX DCA
 # ==========================================
-PAR = 'BTC/USDC'                    # O pareamento oficial Web3
+PAR = 'SOL/USDC'
+MOEDA_BASE = 'SOL'                    # O pareamento oficial Web3
 INTERVALO = '15m'                   # Tempo gráfico ideal para o seu MACD rápido
-INVESTIMENTO_INICIAL = 200.00       # Valor em DÓLARES (USDC)
+INVESTIMENTO_INICIAL = 78.00       # Valor em DÓLARES (USDC)
 MAX_COMPRAS = 3                     
 
 DISTANCIA_MINIMA_QUEDA = 0.019      
@@ -106,8 +107,10 @@ while True:
 
         cruzamento_compra = (dif_anterior < dea_anterior) and (dif_atual >= dea_atual)
         cruzamento_venda = (dif_anterior > dea_anterior) and (dif_atual <= dea_atual)
-
-        # 🟢 COMPRA
+        
+        #=========================================
+        # 🟢 COMPRA 🟢
+        #=========================================
         if cruzamento_compra and num_compras < MAX_COMPRAS:
             distancia_ok = True
             if num_compras > 0:
@@ -122,15 +125,15 @@ while True:
                 if valor_da_ordem > usdc_balance:
                     print(f"[{datetime.now()}] 💸 Saldo USDC insuficiente na Carteira.")
                 else:
-                    qtd_btc = math.floor((valor_da_ordem / preco_mercado) * 100000) / 100000.0
-                    valor_real_gasto = qtd_btc * preco_mercado
+                    qtd_moeda = math.floor((valor_da_ordem / preco_mercado) * 100000) / 100000.0
+                    valor_real_gasto = qtd_moeda * preco_mercado
 
-                    # Assina e envia a transação para a Blockchain
-                    dex.create_market_buy_order(PAR, qtd_btc)
+                    dex.create_order(PAR, 'market', 'buy', qtd_moeda, preco_mercado)
 
                     num_compras += 1
-                    total_qtd_comprada += qtd_btc
+                    total_qtd_comprada += qtd_moeda
                     total_investido += valor_real_gasto
+
                     preco_medio = total_investido / total_qtd_comprada
                     ultimo_preco_compra = preco_mercado
                     posicao_aberta = True
@@ -142,10 +145,12 @@ while True:
                         "capital_operacional": capital_operacional
                     })
 
-                    registrar_operacao([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), f"COMPRA {num_compras}", preco_mercado, qtd_btc, "", "", "", valor_real_gasto])
-                    enviar_telegram(f"🛒 <b>COMPRA DEX ({num_compras}/{MAX_COMPRAS})</b>\n<b>Preço:</b> ${preco_mercado:.2f}\n<b>Investido:</b> ${valor_real_gasto:.2f}\n📊 <b>Novo PM:</b> ${preco_medio:.2f}")
+                    registrar_operacao([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), f"COMPRA {num_compras}", preco_mercado, qtd_moeda, "", "", "", valor_real_gasto])
+                    enviar_telegram(f"🛒 <b>COMPRA DEX ({num_compras}/{MAX_COMPRAS})</b>\n<b>Moeda:</b> {qtd_moeda} {MOEDA_BASE}\n<b>Preço:</b> ${preco_mercado:.2f}\n<b>Investido:</b> ${valor_real_gasto:.2f}\n📊 <b>Novo PM:</b> ${preco_medio:.2f}")
 
-        # 🔴 VENDA
+        #=========================================
+        # 🔴 VENDA 🔴
+        #=========================================
         elif posicao_aberta and cruzamento_venda:
             if preco_mercado > preco_medio:
                 valor_total_venda = total_qtd_comprada * preco_mercado
@@ -153,11 +158,11 @@ while True:
                 lucro_percentual = (lucro / total_investido) * 100
 
                 if lucro_percentual >= LUCRO_MINIMO_PERCENTUAL:
-                    btc_balance = dex.fetch_balance().get('total', {}).get('BTC', 0.0)
-                    qtd_para_venda = min(total_qtd_comprada, btc_balance)
+                    moeda_balance = dex.fetch_balance().get('total', {}).get(MOEDA_BASE, 0.0)
+                    qtd_para_venda = min(total_qtd_comprada, moeda_balance)
                     
                     # Venda executada na Blockchain
-                    dex.create_market_sell_order(PAR, qtd_para_venda)
+                    dex.create_order(PAR, 'market', 'sell', qtd_para_venda, preco_mercado)
 
                     registrar_operacao([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "VENDA TOTAL", "", total_qtd_comprada, preco_mercado, valor_total_venda, lucro, total_investido])
                     
@@ -180,7 +185,7 @@ while True:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
     
     contador_telegram += 1
-    if contador_telegram >= 63:
+    if contador_telegram >= 48:
         enviar_telegram(msg)
         contador_telegram = 0
 
